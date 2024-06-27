@@ -1,0 +1,45 @@
+body {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    height: 100vh;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #2E86C1; /* website background */
+  }
+  
+  .container {
+    width: 500px; /* width of the form */
+    margin-top: 20px; /* adjust as needed */
+    text-align: center;
+  }
+  
+  form {
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+    text-align: center;
+  }
+  
+  h2 {
+    margin-top: 0;
+  }
+  
+  label,
+  input,
+  button {
+    display: block;
+    margin-bottom: 10px;
+  }
+  
+  button { 
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  

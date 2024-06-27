@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upload File to Firebase</title>
+
+<link rel="stylesheet" href="style.css">
+
+<!-- Firebase JavaScript SDK -->
+<script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-app.js";
+  import { getStorage, ref, uploadBytesResumable } from "https://www.gstatic.com/firebasejs/9.0.2/firebase-storage.js";
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyDKtXsA4mSPqYSclYvbX5Yq9yGNE5tpm5c",
+    authDomain: "photos-5766c.firebaseapp.com",
+    projectId: "photos-5766c",
+    storageBucket: "photos-5766c.appspot.com",
+    messagingSenderId: "177177901562",
+    appId: "1:177177901562:web:7a0187c9f9e205a6b38c43",
+    measurementId: "G-J9B44TZBWV"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const storage = getStorage(app);
+
+  // Function to handle file upload
+  window.handleFileUpload = function() {
+    const firstName = document.getElementById('firstName').value;
+    const lastName = document.getElementById('lastName').value;
+    const file = document.getElementById('file').files[0];
+
+    if (!file) {
+      alert("No file selected. Please select a file to upload.");
+      return;
+    }
+
+    // Create a storage reference
+    const storageRef = ref(storage, `${firstName}_${lastName}_${file.name}`);
+
+    // Upload file
+    const uploadTask = uploadBytesResumable(storageRef, file);
+
+    // Monitor upload progress
+    uploadTask.on('state_changed',
+      (snapshot) => {
+        // Progress
+        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+        console.log(`Upload is ${progress}% done`);
+      },
+      (error) => {
+        // Error handling
+        console.error('Upload failed:', error);
+        alert('Upload failed. Check console for error details.');
+      },
+      () => {
+        // Upload complete
+        console.log('Upload successful');
+        alert('File uploaded successfully!');
+      }
+    );
+  };
+</script>
+</head>
+<body>
+  <div class="container">
+    <h2>Upload File to Firebase Storage</h2>
+    <form>
+      <label for="firstName">First Name:</label>
+      <input type="text" id="firstName" name="firstName" required><br><br>
+      
+      <label for="lastName">Last Name:</label>
+      <input type="text" id="lastName" name="lastName" required><br><br>
+      
+      <label for="file">Select File:</label>
+      <input type="file" id="file" name="file" required><br><br>
+      
+      <button type="button" onclick="handleFileUpload()">Upload File</button>
+    </form>
+  </div>
+</body>
+</html>
