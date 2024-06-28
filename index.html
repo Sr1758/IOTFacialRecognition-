@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
-    <title>Alzheimer's Upload</title>
+    <title>Message Board</title>
 </head>
 <body>
     <main>
-        <h1>Welcome to Alzheimer's Upload!</h1>
+        <h1>Welcome to the Message Board!</h1>
         <div class="content-container">
             <!-- Section for logged-out view -->
             <section id="logged-out-view">
@@ -63,16 +63,30 @@
 
             
             <!-- Section for logged-in view -->
-            <script>
-                // Fetch and insert the content from logged-in-view.html
-                fetch('logged-in-view.html')
-                    .then(response => response.text())
-                    .then(data => {
-                        // Replace the content of #logged-in-view with the fetched HTML
-                        document.getElementById('logged-in-view').innerHTML = data;
-                    })
-                    .catch(error => console.error('Error fetching content:', error));
-            </script>
+            <section id="logged-in-view">
+                <div class="top-section">
+                    <h2 class="greeting">You are logged in as <span id="user-email"></span>.</h2>
+                    <button id="logout-button" class="logout-btn">Logout</button>
+                </div>
+                <div class="msg-container">
+                    <div class="msg-form-group">
+                        <textarea class="msg-input-form" id="msg-input" name="message" placeholder="Type a message and let us know what's on your mind?"></textarea>
+                        <button class="msg-submit-btn" type="submit">Submit</button>
+                    </div>
+                    <div class="msg-list-container">
+                        <h3>PHOTOS</h3>
+                        <hr>
+                        <div class="message">
+                            <div class="user-tag">User: wiresift@gmail.com</div>
+                            <div class="user-msg">I am feeling like I want to build an app today.</div>
+                        </div>
+                        <div class="message">
+                            <div class="user-tag">User: test@gmail.com</div>
+                            <div class="user-msg">I'm super tired. No app building today. Just going to take a nap!</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </div>
     </main>
 
