@@ -1,12 +1,17 @@
 {
-  "name": "iotfacialrecognition",
-  "version": "1.0.0",
-  "main": "index.js",
+  "name": "uploadphotos",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": ""
+  "devDependencies": {
+    "vite": "^5.3.1"
+  },
+  "dependencies": {
+    "firebase": "^10.12.2"
+  }
 }
