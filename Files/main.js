@@ -52,6 +52,10 @@ const createAccountBtn = document.getElementById('sign-up-btn')
 const loginBtn = document.getElementById('sign-in-btn')
 const logoutBtn = document.getElementById('logout-button')
 
+// Messages
+const passwordError = document.getElementById('password-error-message');
+const signUpEmailError = document.getElementById('Sign-up-email-error-message');
+
 
 // Detects state change
 onAuthStateChanged(auth, (user) => {
@@ -76,19 +80,31 @@ onAuthStateChanged(auth, (user) => {
 // Event Listeners for Buttons
 // Click on Create Account Button
 createAccountBtn.addEventListener('click', () => {
-    createUserWithEmailAndPassword(auth, emailSignUpForm.value, passwordSignUpForm.value)
-        .then((userCredential) => {
-            // Signed up 
-            const user = userCredential.user;
-            console.log(user)
-            // ...
-        })
-        .catch((error) => {
-            const errorCode = error.code;
-            const errorMessage = error.message;
-            console.log(errorMessage)
-            // ..
-        });
+
+    //Display error msg
+    if(!(emailSignUpForm.value.includes('@') && emailSignUpForm.value.includes('.'))){
+        signUpEmailError.innerText = "Invaild Email! Please Try again.";
+        signUpEmailError.style.display = 'block';
+    }
+    else{
+        createUserWithEmailAndPassword(auth, emailSignUpForm.value, passwordSignUpForm.value)
+            .then((userCredential) => {
+                // Signed up 
+                const user = userCredential.user;
+                console.log(user)
+                
+                //Remove error msg
+                signUpEmailError.innerText = '';
+                signUpEmailError.style.display = 'none';
+            })
+            .catch((error) => {
+                const errorCode = error.code;
+                const errorMessage = error.message;
+                console.log(errorMessage)
+                
+            });
+    }
+    
     console.log('Create Account Button Clicked')
     console.log(`Email: ${emailSignUpForm.value}`)
     console.log(`Password: ${passwordSignUpForm.value}`)
@@ -101,12 +117,20 @@ loginBtn.addEventListener('click', () => {
             // Signed in 
             const user = userCredential.user;
             console.log(user)
-            // ...
+
+
+            // Clear password error msg
+            passwordError.innerText = '';
+            passwordError.style.display = 'none';
         })
         .catch((error) => {
             const errorCode = error.code;
             const errorMessage = error.message;
             console.log(errorMessage)
+
+            // Display error message
+            passwordError.innerText = 'Incorrect email/password! Please try again.';
+            passwordError.style.display = 'block'; // Show the error message div
         });
 
     console.log('Login Clicked')

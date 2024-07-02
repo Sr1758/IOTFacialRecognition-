@@ -186,12 +186,17 @@ h1 {
   color: #333;
 }
 
-/* Error Message */
 .error-msg {
   color: red;
   font-size: 0.875rem;
+  margin-top: 5px;
   text-align: center;
+  padding: 8px; /* Add padding to create space around the text */
+  background-color: #ffcccc; /* Red background color */
+  border: 1px solid red; /* Optional: Add a red border around the box */
+  display: none;
 }
+
 
 /* Greeting */
 .greeting {
