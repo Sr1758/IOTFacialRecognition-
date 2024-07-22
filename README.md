@@ -21,3 +21,15 @@ Command: pip install opencv-python==4.9.0.80
 Command: pip install face_recognition
 
 To run program do "python main.py"
+
+NOTE: 
+
+You can now install all the python libraries required for the project your own environment using the requirements.txt file.
+
+Steps 1: Create a virtual environemnt that you want all the depednecies to go into.
+
+Step 2: Run command (pip install -r requirements.txt)
+
+Step 3: Run command (pip list) to see if all depedncies downloaded sucessfully
+
+Step 4: Have fun :>
