@@ -39,7 +39,7 @@ album_info:{
 }
 '''
 
-def create_album(user_id, album_id, album_info):
+def create_album(user_id, album_info):
     
     # Reference to the specific user's data
     user_ref = db.reference(f'users/{user_id}')
@@ -59,16 +59,18 @@ def create_album(user_id, album_id, album_info):
     if number_of_albums >= 10:
         return "Cannot have more than 10 albums per user"
 
-    # Increment the number of albums
-    user_ref.update({
-        'number_of_albums': number_of_albums + 1
-    })
-
     # Reference to the user's albums collection
     albums_ref = user_ref.child('albums')
 
+    # Increment the number of albums
+    updated_album_number = number_of_albums+1
+
+    user_ref.update({
+        'number_of_albums': updated_album_number
+    })
+
     # Create a new album
-    album_ref = albums_ref.child(album_id)
+    album_ref = albums_ref.child(updated_album_number)
     album_ref.set(album_info)
 
     return 1
@@ -86,9 +88,15 @@ def retrieve_all_albums(user_id):
         return 0
     
     # Initialize an empty list to collect album IDs and names
-    albums_list = []
+
+    #albums_list = []
+    
+    albumID_list = []
+    name_list = []
     
     # Iterate over the albums data and collect album IDs and names
+
+    '''
     for album_id, album_info in albums_data.items():
         album_entry = {
             'albumID': album_id,
@@ -96,7 +104,14 @@ def retrieve_all_albums(user_id):
         }
         albums_list.append(album_entry)
 
-    return albums_list
+    '''
+    for album_id, album_info in albums_data.items():
+        albumID_list.append(album_id)
+        name_list.append(album_info['name'])
+    
+    album_entry = {'albumID': albumID_list,'name': name_list}
+
+    return album_entry
 
 
 '''
