@@ -146,10 +146,27 @@ where you want to store the image in firestore and what name it will go under
 
 name of image should be userID-albumID-image#.png/jpeg
 '''
-def add_photo(local_image_path, storage_image_path):
+def add_photo(user_id, album_id, local_image_path, storage_image_path):
 
     # Reference to storage
     bucket = storage.bucket()
+
+    #Need to determine number of images already within an account
+    album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
+    data = album_ref.get()
+    
+    if 'numImages' not in data:
+        print("There is no num images field in this album")
+        return 0
+    elif data['numImages'] >= 20:
+        print("Number of images exceeds limit for individual album")
+        return 0
+    else:
+        numImages = data['numImages']
+    
+    img_id = numImages + 1
+    
+    img_prefix = f"{user_id}-{album_id}-{img_id}"
 
     # Upload
     blob = bucket.blob(storage_image_path)

@@ -65,6 +65,27 @@ def getAlbums():
     
     return jsonify(temp), 200
 
+@app.route('/addPhoto', methods=['POST'])
+def addPhoto():
+
+    # Get the JSON data from the request
+    data = request.get_json()
+    
+    # Ensure the required fields are present
+    if not data or 'img' not in data:
+        return jsonify({'error': 'Invalid data'}), 400
+    
+    user_id = data['userID']
+    album_id = data['albumID']
+
+    temp = retrieve_all_albums(user_id,album_id)
+
+    if temp == 0:
+        return jsonify({'message': 'Server failed to retrieve album data'}), 400
+    
+    return jsonify(temp), 200
+
+
 
 if __name__ == "__main__":
-    app.run(port=3002, debug=True)
+    app.run(port=3000, debug=True)
