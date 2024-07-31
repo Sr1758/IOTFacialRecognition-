@@ -51,10 +51,10 @@ def create_album(user_id, album_info):
         return "User does not exist"
 
     # Check the number of albums
-    if 'number_of_albums' not in user_data:
+    if 'numAlbums' not in user_data:
         number_of_albums = 0
     else:
-        number_of_albums = user_data['number_of_albums']
+        number_of_albums = user_data['numAlbums']
 
     if number_of_albums >= 10:
         return "Cannot have more than 10 albums per user"
@@ -66,11 +66,11 @@ def create_album(user_id, album_info):
     updated_album_number = number_of_albums+1
 
     user_ref.update({
-        'number_of_albums': updated_album_number
+        'numAlbums': updated_album_number
     })
 
     # Create a new album
-    album_ref = albums_ref.child(updated_album_number)
+    album_ref = albums_ref.child(str(updated_album_number))
     album_ref.set(album_info)
 
     return 1

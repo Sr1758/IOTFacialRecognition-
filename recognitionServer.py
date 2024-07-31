@@ -11,21 +11,32 @@ def add_album():
     # Get the JSON data from the request
     data = request.get_json()
     
-    # Ensure the required fields are present
-    if data or 'userID' not in data or 'name' not in data or 'bio' not in data:
-        return jsonify({'error': 'Invalid data'}), 400
-    
     #Package data for usage in create_album function
     user_id = data['userID']
     name = data['name']
     bio = data['bio']
 
-    album_info = jsonify({'name': name, 'bio': bio})
+    # Ensure the required fields are present
+    if not data or 'userID' not in data or 'name' not in data or 'bio' not in data:
+        return jsonify({'error': 'Invalid data'}), 400
+
+    album_info = {
+        'name': name,
+        'bio': bio,
+        'numImages': 0
+    }
 
     #Create an album for a user on the real time database 
-    create_album(user_id, album_info)
-    
-    return jsonify({'message': 'Album added successfully'}), 200
+    test = create_album(user_id, album_info)
+
+    if test==1:
+        return jsonify({'message': 'Album added successfully'}), 200
+    elif test=="Cannot have more than 10 albums per user":
+        return jsonify({'message': 'Cannot have more thatn 10 albums per user'}),400
+    elif test=="User does not exist":
+        return jsonify({'message': 'User does not exist'}),400
+    else:
+        return jsonify({'message': 'Unknown error'}), 400
 
 @app.route('/enable_camera', methods=['POST'])
 def enable_camera():
@@ -84,8 +95,6 @@ def addPhoto():
         return jsonify({'message': 'Server failed to retrieve album data'}), 400
     
     return jsonify(temp), 200
-
-
 
 if __name__ == "__main__":
     app.run(port=3000, debug=True)
