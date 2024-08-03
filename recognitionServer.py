@@ -6,6 +6,7 @@ from texting import phone_check, text_to_user
 
 app = Flask(__name__)
 
+#This method is used to add an album to a user's account
 @app.route('/addAlbum', methods=['POST'])
 def add_album():
     # Get the JSON data from the request
@@ -38,6 +39,9 @@ def add_album():
     else:
         return jsonify({'message': 'Unknown error'}), 400
 
+
+
+#When user hits enable/disable notifications, this route is used to update the val of notications variable
 @app.route('/enable_camera', methods=['POST'])
 def enable_camera():
 
@@ -56,6 +60,8 @@ def enable_camera():
     
     return jsonify({'message': 'Notification Switched'}), 200
 
+
+#When a user requests a list of all the albums currently on firebase for a user this method is called
 @app.route('/getAlbums', methods=['POST'])
 def getAlbums():
 
@@ -71,11 +77,14 @@ def getAlbums():
     #Run function to change the notification setting for the esp32 cam
     temp = retrieve_all_albums(user_id)
 
+    print(temp)
+
     if temp == 0:
         return jsonify({'message': 'Server failed to retrieve album data'}), 400
     
     return jsonify(temp), 200
 
+#If a user wants to add a photo to firebase storage then this method is called
 @app.route('/addPhoto', methods=['POST'])
 def addPhoto():
 

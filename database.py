@@ -70,7 +70,10 @@ def create_album(user_id, album_info):
     })
 
     # Create a new album
-    album_ref = albums_ref.child(str(updated_album_number))
+    album_id = str(updated_album_number)
+    album_info['albumID'] = album_id  # Ensure the albumID field is included
+    albums_ref = user_ref.child('albums')
+    album_ref = albums_ref.child(album_id)
     album_ref.set(album_info)
 
     return 1
@@ -87,32 +90,32 @@ def retrieve_all_albums(user_id):
     if not albums_data:
         return 0
     
+    # Check if albums_data is a list and filter out None values
+    if isinstance(albums_data, list):
+        albums_data = [album for album in albums_data if album is not None]
+
     # Initialize an empty list to collect album IDs and names
 
-    #albums_list = []
-    
-    albumID_list = []
-    name_list = []
+    names = []
+    albumID = []
     
     # Iterate over the albums data and collect album IDs and names
 
-    '''
-    for album_id, album_info in albums_data.items():
-        album_entry = {
-            'albumID': album_id,
-            'name': album_info['name']
-        }
-        albums_list.append(album_entry)
-
-    '''
-    for album_id, album_info in albums_data.items():
-        albumID_list.append(album_id)
-        name_list.append(album_info['name'])
+    for  item in albums_data:
+        names.append(item['name'])
+        albumID.append(item['albumID'])
     
-    album_entry = {'albumID': albumID_list,'name': name_list}
+    '''
+    print("albumID: ", albumID)
+    print("Names: ", names)
+    '''
+    
+    album_collection = {
+        'albumID': albumID,
+        'names': names
+    }
 
-    return album_entry
-
+    return album_collection
 
 '''
 Used to update value of enableNotifications for a single user
