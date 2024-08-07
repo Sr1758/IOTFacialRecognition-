@@ -82,40 +82,36 @@ def create_album(user_id, album_info):
 Retrieves all albumID and name data from each album from the database
 '''
 def retrieve_all_albums(user_id):
-
     # Reference to the specific user's data
     albums_ref = db.reference(f'users/{user_id}/albums')
     albums_data = albums_ref.get()
 
     if not albums_data:
         return 0
-    
-    # Check if albums_data is a list and filter out None values
-    if isinstance(albums_data, list):
-        albums_data = [album for album in albums_data if album is not None]
 
-    # Initialize an empty list to collect album IDs and names
+    print(f"Albums data: {albums_data}")
 
-    names = []
-    albumID = []
-    
-    # Iterate over the albums data and collect album IDs and names
+    # Check if albums_data is a dictionary
+    if isinstance(albums_data, dict):
+        # Initialize an empty list to collect album IDs and names
+        names = []
+        albumID = []
 
-    for  item in albums_data:
-        names.append(item['name'])
-        albumID.append(item['albumID'])
-    
-    '''
-    print("albumID: ", albumID)
-    print("Names: ", names)
-    '''
-    
-    album_collection = {
-        'albumID': albumID,
-        'names': names
-    }
+        # Iterate over the albums data and collect album IDs and names
+        for album_id, album_info in albums_data.items():
+            names.append(album_info['name'])
+            albumID.append(album_info['albumID'])
 
-    return album_collection
+        album_collection = {
+            'albumID': albumID,
+            'names': names
+        }
+
+        return album_collection
+    else:
+        print("Unexpected structure for albums_data")
+        return 0
+
 
 '''
 Used to update value of enableNotifications for a single user
@@ -181,36 +177,36 @@ def add_photo(user_id, album_id, local_image_path, storage_image_path):
 Clean out all the images within an album.
 '''
 def clean_album(user_id, album_id):
+    try:
+        path = 'images/'
+        bucket = storage.bucket()
 
-    path = 'images/'
+        # Character array used to sort the image list for the images that correspond to a particular user's album
+        sorting_by_name = f'{user_id}-{album_id}'
 
-    # Reference to storage
-    bucket = storage.bucket()
+        # Lists location of all images that correspond to the a particular album
+        blobs = list(bucket.list_blobs(prefix=sorting_by_name))
+        print(f"Blobs found: {blobs}")
 
-    '''
-    Character array used to sort the image list for the images that correspond 
-    to a particular user's album.
-    '''
-    sorting_by_name = f'{user_id}-{album_id}'
+        # If no images found under user and album specified to check
+        if not blobs:
+            print(f"No files found under user_id {user_id} and album_id {album_id}")
+            return "No files found under user_id and album_id given"
 
-    # Lists location of all images that correspond to the a particular album
-    blobs = bucket.list_blobs(prefix=sorting_by_name)
+        # Delete every image that corresponds to that user and album
+        for blob in blobs:
+            print(f"Deleting blob: {blob.name}")
+            blob.delete()
 
-    #If no images found under user and album specified to check
-    if not blobs:   
-        return "No files found under user_id and album_id given"
-    
-    # Delete every image that corresponds to that user and album
-    for blob in blobs:
-        blob.delete()
+        album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
+        album_ref.update({'numImages': 0})
+        print(f"Album {album_id} for user {user_id} cleaned successfully")
 
-    album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
+        return 1
+    except Exception as e:
+        print(f"An error occurred while cleaning album {album_id} for user {user_id}: {e}")
+        return "Unknown error"
 
-    album_ref.update({
-        'numImages': 0
-    })
-
-    return 1
 
 '''
 Delete album images and album entity in realtime database
@@ -233,12 +229,3 @@ def delete_album(user_id, album_id):
         album_ref.delete()
 
         return 1
-
-
-
-
-
-
-
-
-    

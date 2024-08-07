@@ -6,6 +6,11 @@ from texting import phone_check, text_to_user
 
 app = Flask(__name__)
 
+
+##########################################################################################
+# Method's in this section is related to Adding/Deleting/Reading Albums
+
+
 #This method is used to add an album to a user's account
 @app.route('/addAlbum', methods=['POST'])
 def add_album():
@@ -33,7 +38,7 @@ def add_album():
     if test==1:
         return jsonify({'message': 'Album added successfully'}), 200
     elif test=="Cannot have more than 10 albums per user":
-        return jsonify({'message': 'Cannot have more thatn 10 albums per user'}),400
+        return jsonify({'message': 'Cannot have more than 10 albums per user'}),400
     elif test=="User does not exist":
         return jsonify({'message': 'User does not exist'}),400
     else:
@@ -41,25 +46,28 @@ def add_album():
 
 
 
-#When user hits enable/disable notifications, this route is used to update the val of notications variable
-@app.route('/enable_camera', methods=['POST'])
-def enable_camera():
 
-    # Get the JSON data from the request
+@app.route('/deleteAlbum', methods=['POST'])
+def delete_album_endpoint():
     data = request.get_json()
     
-    # Ensure the required fields are present
-    if not data or 'userID' not in data or 'enable_camera' not in data:
+    if not data or 'userID' not in data or 'albumID' not in data:
         return jsonify({'error': 'Invalid data'}), 400
     
     user_id = data['userID']
-    camera_notification_switch = data['enable_camera']
+    album_id = data['albumID']
 
-    #Run function to change the notification setting for the esp32 cam
-    update_enable_notifications(user_id,camera_notification_switch)
+    result = delete_album(user_id, album_id)
+
+    if result == 1:
+        return jsonify({'message': 'Album deleted successfully'}), 200
+    elif result == "Could not clean album":
+        return jsonify({'message': 'Could not clean album'}), 400
+    elif result == "Album does not exist":
+        return jsonify({'message': 'Album does not exist'}), 400
+    else:
+        return jsonify({'message': 'Unknown error'}), 400
     
-    return jsonify({'message': 'Notification Switched'}), 200
-
 
 #When a user requests a list of all the albums currently on firebase for a user this method is called
 @app.route('/getAlbums', methods=['POST'])
@@ -84,6 +92,11 @@ def getAlbums():
     
     return jsonify(temp), 200
 
+
+
+###########################################################################################
+# Method's in this section is related to Adding/Deleting/Reading photo's
+
 #If a user wants to add a photo to firebase storage then this method is called
 @app.route('/addPhoto', methods=['POST'])
 def addPhoto():
@@ -104,6 +117,30 @@ def addPhoto():
         return jsonify({'message': 'Server failed to retrieve album data'}), 400
     
     return jsonify(temp), 200
+
+
+###########################################################################################
+
+
+#When user hits enable/disable notifications, this route is used to update the val of notications variable
+@app.route('/enable_camera', methods=['POST'])
+def enable_camera():
+
+    # Get the JSON data from the request
+    data = request.get_json()
+    
+    # Ensure the required fields are present
+    if not data or 'userID' not in data or 'enable_camera' not in data:
+        return jsonify({'error': 'Invalid data'}), 400
+    
+    user_id = data['userID']
+    camera_notification_switch = data['enable_camera']
+
+    #Run function to change the notification setting for the esp32 cam
+    update_enable_notifications(user_id,camera_notification_switch)
+    
+    return jsonify({'message': 'Notification Switched'}), 200
+
 
 if __name__ == "__main__":
     app.run(port=3000, debug=True)
