@@ -5,8 +5,20 @@ from firebase_admin import db, credentials, storage
 cred = credentials.Certificate("credentials.json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://ios-alzheimers-app-default-rtdb.firebaseio.com/',
-    'storageBucket': 'gs://ios-alzheimers-app.appspot.com'
+    'storageBucket': 'ios-alzheimers-app.appspot.com'
 })
+
+
+
+
+'''
+Check if the User ID is already being used/exists
+'''
+
+def check_user_exists(user_id):
+    ref = db.reference('users')
+    user_ref = ref.child(user_id)
+    return user_ref.get() is not None
 
 '''
 Uses realtime database to store account data.
@@ -24,6 +36,29 @@ def create_user_account(user_id, user_info):
     user_ref = ref.child(user_id)
     user_ref.set(user_info)
     return 1
+
+'''
+Method to delete a User
+'''
+
+def delete_user(user_id):
+    # Reference to the specific user's data
+    user_ref = db.reference(f'users/{user_id}')
+    
+    # Check if the user exists
+    user_data = user_ref.get()
+    
+    if not user_data:
+        return "User does not exist"
+
+    try:
+        # Delete the user's data from the database
+        user_ref.delete()
+        return 1
+    except Exception as e:
+        print(f"Error occurred while deleting user: {e}")
+        return "Failed to delete user"
+
 
 
 '''
@@ -82,35 +117,40 @@ def create_album(user_id, album_info):
 Retrieves all albumID and name data from each album from the database
 '''
 def retrieve_all_albums(user_id):
-    # Reference to the specific user's data
+    # Reference to the specific user's albums
     albums_ref = db.reference(f'users/{user_id}/albums')
     albums_data = albums_ref.get()
 
-    if not albums_data:
-        return 0
+    if albums_data is None:
+        # If no albums exist, return an empty collection
+        return {
+            'albumID': [],
+            'names': []
+        }
 
-    print(f"Albums data: {albums_data}")
+    # Initialize lists to collect album IDs and names
+    names = []
+    albumID = []
 
-    # Check if albums_data is a dictionary
+    # Iterate over the albums data and collect album IDs and names
     if isinstance(albums_data, dict):
-        # Initialize an empty list to collect album IDs and names
-        names = []
-        albumID = []
-
-        # Iterate over the albums data and collect album IDs and names
         for album_id, album_info in albums_data.items():
             names.append(album_info['name'])
             albumID.append(album_info['albumID'])
-
-        album_collection = {
-            'albumID': albumID,
-            'names': names
-        }
-
-        return album_collection
     else:
         print("Unexpected structure for albums_data")
-        return 0
+        return {
+            'albumID': [],
+            'names': []
+        }
+
+    album_collection = {
+        'albumID': albumID,
+        'names': names
+    }
+
+    return album_collection
+
 
 
 '''
@@ -170,6 +210,11 @@ def add_photo(user_id, album_id, local_image_path, storage_image_path):
     # Upload
     blob = bucket.blob(storage_image_path)
     blob.upload_from_filename(local_image_path)
+
+    # Update the number of images in the album
+    album_ref.update({
+        'numImages': img_id
+    })
 
     return 1
 

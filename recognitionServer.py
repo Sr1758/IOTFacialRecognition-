@@ -1,10 +1,72 @@
 from flask import Flask, request, jsonify
 
-from database import create_album, clean_album, retrieve_all_albums 
-from database import add_photo, update_enable_notifications, delete_album
+from database import *
 from texting import phone_check, text_to_user
 
 app = Flask(__name__)
+
+
+##########################################################################################
+# Method's in this section create and delete users
+
+@app.route('/createUser', methods=['POST'])
+def create_user():
+    # Get the JSON data from the request
+    data = request.get_json()
+
+    #Package data for usage in create_album function
+    user_id = data['userID']
+
+    # Error messages
+    # Ensure the required fields are present
+    if not data or 'userID' not in data:
+        return jsonify({'error': 'Invalid data'}), 400
+
+    # Check if the user already exists
+    if check_user_exists(user_id):
+        return jsonify({'error': 'User already exists'}), 400
+    
+    # database structure
+    user_info = {
+        "userID": user_id,
+        "enableNotifications": True,
+        "numAlbums": 0
+    }
+
+    #Create an album for a user on the real time database 
+    test = create_user_account(user_id, user_info)
+
+    if test==1:
+        return jsonify({'message': 'User created successfully'}), 200
+    else:
+        return jsonify({'message': 'Unknown error'}), 400
+    
+
+
+
+# NOTE ONCE A USER IS DELETE IT'S GONE FOREVER
+@app.route('/deleteUser', methods=['POST'])
+def delete_single_user():
+    # Get the JSON data from the request
+    data = request.get_json()
+
+    # Ensure the required fields are present
+    if not data or 'userID' not in data:
+        return jsonify({'error': 'Invalid data'}), 400
+
+    user_id = data['userID']
+
+    # Attempt to delete the user
+    result = delete_user(user_id)
+
+    if result == 1:
+        return jsonify({'message': 'User deleted successfully'}), 200
+    elif result == "User does not exist":
+        return jsonify({'message': 'User does not exist'}), 400
+    else:
+        return jsonify({'message': 'Failed to delete user'}), 400
+
+    
 
 
 ##########################################################################################
@@ -82,6 +144,10 @@ def getAlbums():
     
     user_id = data['userID']
 
+     # Check if the user doesn't exists
+    if not check_user_exists(user_id):
+        return jsonify({'error': 'User does not exists'}), 400
+
     #Run function to change the notification setting for the esp32 cam
     temp = retrieve_all_albums(user_id)
 
@@ -99,8 +165,7 @@ def getAlbums():
 
 #If a user wants to add a photo to firebase storage then this method is called
 @app.route('/addPhoto', methods=['POST'])
-def addPhoto():
-
+def addPhoto(): 
     # Get the JSON data from the request
     data = request.get_json()
     
@@ -110,13 +175,17 @@ def addPhoto():
     
     user_id = data['userID']
     album_id = data['albumID']
-
-    temp = retrieve_all_albums(user_id,album_id)
-
-    if temp == 0:
-        return jsonify({'message': 'Server failed to retrieve album data'}), 400
+    img_path = data['img']
     
-    return jsonify(temp), 200
+    # Add the photo using the add_photo function
+    result = add_photo(user_id, album_id, img_path, f'{user_id}-{album_id}-uploaded.jpg')
+    
+    if result == 0:
+        return jsonify({'message': 'Failed to add photo'}), 400
+    
+    return jsonify({'message': 'Photo added successfully'}), 200
+
+
 
 
 ###########################################################################################
