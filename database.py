@@ -1,11 +1,12 @@
 import firebase_admin
 from firebase_admin import db, credentials, storage
+import os
 
 #authenticate to firebase
 cred = credentials.Certificate("credentials.json")
 firebase_admin.initialize_app(cred, {
     'databaseURL': 'https://ios-alzheimers-app-default-rtdb.firebaseio.com/',
-    'storageBucket': 'gs://ios-alzheimers-app.appspot.com'
+    'storageBucket': 'ios-alzheimers-app.appspot.com'
 })
 
 '''
@@ -17,12 +18,75 @@ user_info:{
     "userID": INT
     "enableNotifications": BOOL
     "numAlbums": INT
+    "modelNumber": VARCHAR(12)
 }
 '''
 def create_user_account(user_id, user_info):
     ref = db.reference('users')
     user_ref = ref.child(user_id)
     user_ref.set(user_info)
+    return 1
+
+#Update user account to have a given model number
+def updateCamera(user_id, modelNumber):
+    ref = db.reference('users')
+    user_ref = ref.child(user_id)
+    user_ref.update({'modelNumber': modelNumber})
+    return 1
+
+# Retrieves the model number for every user on the realtime database
+def retrieve_all_model_numbers():
+    ref = db.reference('users')
+    users = ref.get()
+
+    if not users:
+        print("No users found.")
+        return []
+
+    # Initialize an empty list to collect model numbers
+    modelNumbers = []
+    user_ids = []
+
+    # Iterate over the users data and collect model numbers and user IDs
+    for user_id, user_data in users.items():
+        if 'modelNumber' in user_data:
+            modelNumbers.append(user_data['modelNumber'])
+            user_ids.append(user_id)
+
+    model_number_collection = {
+        'userID': user_ids,
+        'modelNumbers': modelNumbers
+    }
+
+    return model_number_collection
+
+# Validate whether model number exists for a given user
+def validate_model_number(user_id, model_number):
+    # Reference to the specific user's data
+    user_ref = db.reference(f'users/{user_id}')
+
+    # Get the user's current data
+    user_data = user_ref.get()
+
+    # Check whether the user exists
+    if not user_data:
+        return "User does not exist"
+
+    # Retrieve all model numbers and their associated account IDs
+    models_data = retrieve_all_model_numbers()
+
+    # Extract necessary data from json packet
+    users = models_data['userID']
+    models = models_data['modelNumbers']
+
+    # Check if the model number is used by another user
+    if model_number in models:
+        index_1 = users.index(user_id) if user_id in users else -1
+        index_2 = models.index(model_number)
+
+        if models.count(model_number) == 1 and index_1 != index_2:
+            return "Another user already has this model number"
+
     return 1
 
 
@@ -38,6 +102,8 @@ album_info:{
     "numImages": INT
 }
 '''
+
+
 
 def create_album(user_id, album_info):
     
@@ -109,7 +175,7 @@ def retrieve_all_albums(user_id):
     print("albumID: ", albumID)
     print("Names: ", names)
     '''
-    
+
     album_collection = {
         'albumID': albumID,
         'names': names
@@ -149,33 +215,55 @@ where you want to store the image in firestore and what name it will go under
 
 name of image should be userID-albumID-image#.png/jpeg
 '''
-def add_photo(user_id, album_id, local_image_path, storage_image_path):
+def add_photo(user_id, album_id, local_image_path):
+    try:
+        # Reference to storage
+        bucket = storage.bucket()
 
-    # Reference to storage
-    bucket = storage.bucket()
+        # Check if the bucket was obtained correctly
+        if not bucket:
+            print("Error: Could not obtain bucket reference")
+            return 0
 
-    #Need to determine number of images already within an account
-    album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
-    data = album_ref.get()
-    
-    if 'numImages' not in data:
-        print("There is no num images field in this album")
+        # Determine number of images already within an account
+        album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
+        data = album_ref.get()
+        
+        if not data:
+            print("Album data not found.")
+            return 0
+
+        if 'numImages' not in data:
+            print("There is no numImages field in this album")
+            return 0
+        elif data['numImages'] >= 20:
+            print("Number of images exceeds limit for individual album")
+            return 0
+        else:
+            numImages = data['numImages']
+        
+        img_id = numImages + 1
+        img_prefix = f"{user_id}-{album_id}-{img_id}"
+        storage_image_path = f"images/{img_prefix}.png"  # Ensure path format
+
+        # Upload
+        if not os.path.exists(local_image_path):
+            print(f"Local image path does not exist: {local_image_path}")
+            return 0
+
+        blob = bucket.blob(storage_image_path)
+        blob.upload_from_filename(local_image_path)
+
+        # Update the number of images
+        album_ref.update({'numImages': img_id})
+
+        print(f"Successfully uploaded {local_image_path} to {storage_image_path}")
+
+        return 1
+
+    except Exception as e:
+        print(f"Error in add_photo: {e}")
         return 0
-    elif data['numImages'] >= 20:
-        print("Number of images exceeds limit for individual album")
-        return 0
-    else:
-        numImages = data['numImages']
-    
-    img_id = numImages + 1
-    
-    img_prefix = f"{user_id}-{album_id}-{img_id}"
-
-    # Upload
-    blob = bucket.blob(storage_image_path)
-    blob.upload_from_filename(local_image_path)
-
-    return 1
 
 '''
 Clean out all the images within an album.
