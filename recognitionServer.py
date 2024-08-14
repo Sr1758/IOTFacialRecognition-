@@ -170,12 +170,26 @@ def addPhoto():
     data = request.get_json()
     
     # Ensure the required fields are present
-    if not data or 'img' not in data:
+    if not data or 'userID' not in data or 'albumID' not in data or 'img' not in data:
         return jsonify({'error': 'Invalid data'}), 400
     
     user_id = data['userID']
     album_id = data['albumID']
     img_path = data['img']
+
+    # Check if the user exists
+    user_ref = db.reference(f'users/{user_id}')
+    user_data = user_ref.get()
+    
+    if not user_data:
+        return jsonify({'error': 'User does not exist'}), 400
+    
+    # Check if the album exists
+    album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
+    album_data = album_ref.get()
+    
+    if not album_data:
+        return jsonify({'error': 'Album does not exist'}), 400
     
     # Add the photo using the add_photo function
     result = add_photo(user_id, album_id, img_path, f'{user_id}-{album_id}-uploaded.jpg')
@@ -189,7 +203,7 @@ def addPhoto():
 
 
 ###########################################################################################
-
+# Method's in this section controls the camera/face cam
 
 #When user hits enable/disable notifications, this route is used to update the val of notications variable
 @app.route('/enable_camera', methods=['POST'])
@@ -209,6 +223,31 @@ def enable_camera():
     update_enable_notifications(user_id,camera_notification_switch)
     
     return jsonify({'message': 'Notification Switched'}), 200
+
+
+#######################################################################################
+# This section is for helpful dev tools
+
+
+@app.route('/getUserStructure', methods=['POST'])
+def get_user_structure():
+    # Get the JSON data from the request
+    data = request.get_json()
+
+    # Ensure the required fields are present
+    if not data or 'userID' not in data:
+        return jsonify({'error': 'Invalid data'}), 400
+
+    user_id = data['userID']
+
+    # Retrieve the full user structure from Firebase
+    user_data = retrieve_user_structure(user_id)
+
+    if user_data is None:
+        return jsonify({'error': 'User does not exist'}), 400
+
+    return jsonify(user_data), 200
+
 
 
 if __name__ == "__main__":

@@ -122,21 +122,20 @@ def retrieve_all_albums(user_id):
     albums_data = albums_ref.get()
 
     if albums_data is None:
-        # If no albums exist, return an empty collection
         return {
             'albumID': [],
             'names': []
         }
 
-    # Initialize lists to collect album IDs and names
     names = []
     albumID = []
 
-    # Iterate over the albums data and collect album IDs and names
-    if isinstance(albums_data, dict):
-        for album_id, album_info in albums_data.items():
-            names.append(album_info['name'])
-            albumID.append(album_info['albumID'])
+    # Check if albums_data is a list
+    if isinstance(albums_data, list):
+        for album in albums_data:
+            if album:  # Skip null entries
+                names.append(album['name'])
+                albumID.append(album['albumID'])
     else:
         print("Unexpected structure for albums_data")
         return {
@@ -190,33 +189,50 @@ def add_photo(user_id, album_id, local_image_path, storage_image_path):
     # Reference to storage
     bucket = storage.bucket()
 
-    #Need to determine number of images already within an account
+    # Reference to the album
     album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
     data = album_ref.get()
-    
+
     if 'numImages' not in data:
-        print("There is no num images field in this album")
+        print("There is no numImages field in this album")
         return 0
     elif data['numImages'] >= 20:
         print("Number of images exceeds limit for individual album")
         return 0
     else:
-        numImages = data['numImages']
-    
-    img_id = numImages + 1
-    
-    img_prefix = f"{user_id}-{album_id}-{img_id}"
+        num_images = data['numImages']
 
-    # Upload
+    # Increment image count to get the new image ID
+    img_id = num_images + 1
+
+    # Construct the image's unique name
+    img_name = f"{user_id}-{album_id}-{img_id}"
+
+    # Upload the image to Firebase Storage
     blob = bucket.blob(storage_image_path)
     blob.upload_from_filename(local_image_path)
+
+    # Reference to the image list in the album
+    images_ref = album_ref.child('images')
+
+    # Add the new image information to the database
+    image_info = {
+        'imageID': img_id,
+        'imageName': img_name,
+        'storagePath': storage_image_path
+    }
+
+    images_ref.child(str(img_id)).set(image_info)
 
     # Update the number of images in the album
     album_ref.update({
         'numImages': img_id
     })
 
+    print(f"Image {img_name} added successfully to album {album_id} for user {user_id}")
+
     return 1
+
 
 '''
 Clean out all the images within an album.
@@ -274,3 +290,21 @@ def delete_album(user_id, album_id):
         album_ref.delete()
 
         return 1
+    
+
+'''
+This method shows the whole structure for a user, helpful for development
+'''
+
+def retrieve_user_structure(user_id):
+    # Reference to the specific user's data
+    user_ref = db.reference(f'users/{user_id}')
+    
+    # Get the user's data
+    user_data = user_ref.get()
+    
+    if not user_data:
+        return None
+
+    return user_data
+
