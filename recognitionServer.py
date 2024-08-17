@@ -43,27 +43,26 @@ def upload_image():
         '''
 
         # Get the path to the OpenCV package installation
-        #opencv_path = os.path.dirname(cv2.__file__)
+        opencv_path = os.path.dirname(cv2.__file__)
 
         # Construct the path to the Haar Cascades directory
-        #haar_cascades_path = os.path.join(opencv_path, 'data', 'haarcascades')
-
-        print("Flag 1")
+        haar_cascades_path = os.path.join(opencv_path, 'data', 'haarcascade_frontalface_default.xml')
         
        # Load the pre-trained face detection model (Haar Cascade)
-        face_cascade = cv2.CascadeClassifier('/Users/loganpasternak/Desktop/recognitionServer/env/lib/python3.12/site-packages/cv2/data/haarcascade_frontalface_default.xml')
 
-        print("Flag 2")
+        face_cascade = cv2.CascadeClassifier(haar_cascades_path)
 
         # RGB to grayscale 
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) 
 
-        print("Flag 2.5")
-
         # Detect faces in the image
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
-        print("Flag 3")
+        '''
+        Change these variables so that face detector is more sensitive (or figure out how to set up 
+        facial_reocgnition library for ML facial recognition)
+        '''
+        
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
  
         print("faces: ")
         print(faces)
@@ -101,7 +100,61 @@ def upload_image():
         
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    
+@app.route('/deleteAlbum', methods=['POST'])
+def deleteAlbum():
+    try:
+        # Retrieve JSON data from the request
+        data = request.get_json()
 
+        # Extract userID and albumID string data
+        user_id = data.get('userID')
+        album_id = data.get('albumID')
+
+        user_id = int(user_id)
+        album_id = int(album_id)
+
+        if  not user_id or not album_id:
+            return jsonify({"success": False, "message": "Data could not be properly retrieved"}), 400
+        
+        res = delete_album(user_id, album_id)
+
+        if res!=1:
+            print(res)
+            return jsonify({"success": False, "message": "Data could not be sucessfully cleaned or deleted"}), 400
+        
+        return jsonify({"success": True, "message": "Images and metadata succesfully deleted"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    
+
+@app.route('/clearAlbum', methods=['POST'])
+def clearAlbum():
+    try:
+        # Retrieve JSON data from the request
+        data = request.get_json()
+
+        # Extract userID and albumID string data
+        user_id = data.get('userID')
+        album_id = data.get('albumID')
+
+        user_id = int(user_id)
+        album_id = int(album_id)
+
+        if  not user_id or not album_id:
+            return jsonify({"success": False, "message": "Data could not be properly retrieved"}), 400
+        
+        res = clean_album(user_id,album_id)
+
+        if res!=1:
+            print(res)
+            return jsonify({"success": False, "message": "Image data could not be sucessfully cleaned"}), 400
+        
+        return jsonify({"success": True, "message": "Images successfully deleted"}), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
 #This method is used to add an album to a user's account
 @app.route('/addAlbum', methods=['POST'])
@@ -178,27 +231,6 @@ def getAlbums():
         return jsonify({'message': 'Server failed to retrieve album data'}), 400
     
     return temp, 200
-
-#If a user wants to add a photo to firebase storage then this method is called
-@app.route('/addPhoto', methods=['POST'])
-def addPhoto():
-
-    # Get the JSON data from the request
-    data = request.get_json()
-    
-    # Ensure the required fields are present
-    if not data or 'img' not in data:
-        return jsonify({'error': 'Invalid data'}), 400
-    
-    user_id = data['userID']
-    album_id = data['albumID']
-
-    temp = retrieve_all_albums(user_id,album_id)
-
-    if temp == 0:
-        return jsonify({'message': 'Server failed to retrieve album data'}), 400
-    
-    return jsonify(temp), 200
 
 #This method is used to register a camera model number to a specific account
 @app.route('/cam_model', methods=['POST'])

@@ -279,19 +279,23 @@ def clean_album(user_id, album_id):
     Character array used to sort the image list for the images that correspond 
     to a particular user's album.
     '''
-    sorting_by_name = f'{user_id}-{album_id}'
+    sorting_by_name = f'images/{user_id}-{album_id}'
 
     # Lists location of all images that correspond to the a particular album
     blobs = bucket.list_blobs(prefix=sorting_by_name)
-
-    #If no images found under user and album specified to check
-    if not blobs:   
-        return "No files found under user_id and album_id given"
     
+    # Track whether any blobs were found and deleted
+    deleted_any = False
+
     # Delete every image that corresponds to that user and album
     for blob in blobs:
+        deleted_any = True
         blob.delete()
 
+    # If no images were found under the user and album specified
+    if not deleted_any:
+        return "No files found under user_id and album_id given"
+    
     album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
 
     album_ref.update({
