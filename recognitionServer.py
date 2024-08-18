@@ -4,6 +4,7 @@ import base64
 import cv2 
 import numpy as np 
 import dlib
+import face_recognition
 from database import create_album, clean_album, retrieve_all_albums 
 from database import add_photo, update_enable_notifications, delete_album
 from database import updateCamera, validate_model_number
@@ -42,6 +43,13 @@ def upload_image():
         * There is more than one face or there is no face. Give json error response message.
         '''
 
+        # Use face_recognition to locate faces
+        face_locations = face_recognition.face_locations(image)
+
+        # Check the number of detected faces
+        if len(face_locations) != 1:
+            return jsonify({"success": False, "message": "Image must contain exactly one face"}), 400
+
         # Get the path to the OpenCV package installation
         opencv_path = os.path.dirname(cv2.__file__)
 
@@ -55,30 +63,50 @@ def upload_image():
         # RGB to grayscale 
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) 
 
+        #Improves contrast of grayscale image
+        gray = cv2.equalizeHist(gray)
+
+        #Reduce noice before detection
+        gray = cv2.GaussianBlur(gray, (5, 5), 0)
+
         # Detect faces in the image
 
         '''
         Change these variables so that face detector is more sensitive (or figure out how to set up 
         facial_reocgnition library for ML facial recognition)
         '''
+
+        # uses face_recognition (deep learning) 
+        faces = face_recognition.face_locations(image)
         
+        #uses haar cascades
+
+        '''
         faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
  
         print("faces: ")
-        print(faces)
+        print(len(faces))
     
-        # Iterator to count faces 
-        i = 0
-        for face in faces: 
+        # Post-process to filter out false positives
+        filtered_faces = []
+        for (x, y, w, h) in faces:
+            aspect_ratio = w / float(h)
+            if 0.75 < aspect_ratio < 1.3: 
+                filtered_faces.append((x, y, w, h))
 
-            # Increment iterator for each face in faces 
-            i = i+1
+        faces = filtered_faces
 
-        print("numFaces: ")
-        print(i)
+        print("filtered face number: ")
+        print(len(faces))
 
-        if i>1 or i==0:
-            return jsonify({"success": False, "message": "Improper image format"}), 400
+        '''
+
+        print("filtered face number: ")
+        print(len(faces))
+        
+        if len(faces) != 1:
+            return jsonify({"success": False, "message": "Image must contain exactly one face"}), 400
+        
 
         # Define local and storage paths
         local_image_path = f"/tmp/{user_id}-{album_id}.png"
