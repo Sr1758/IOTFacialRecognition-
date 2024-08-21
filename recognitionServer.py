@@ -30,10 +30,11 @@ def create_user():
     user_info = {
         "userID": user_id,
         "enableNotifications": True,
-        "numAlbums": 0
+        "numAlbums": 0,
+        "albums": {}
     }
 
-    #Create an album for a user on the real time database 
+    # Create the user account in the database
     test = create_user_account(user_id, user_info)
 
     if test==1:
@@ -190,9 +191,18 @@ def addPhoto():
     
     if not album_data:
         return jsonify({'error': 'Album does not exist'}), 400
+
+    # Retrieve the current number of images in the album
+    num_images = album_data.get('numImages', 0)
+    
+    # Generate the new image ID
+    image_id = num_images + 1
+    
+    # Create the storage path for the image
+    storage_image_path = f'{user_id}-{album_id}-{image_id}.jpg'
     
     # Add the photo using the add_photo function
-    result = add_photo(user_id, album_id, img_path, f'{user_id}-{album_id}-uploaded.jpg')
+    result = add_photo(user_id, album_id, img_path, storage_image_path)
     
     if result == 0:
         return jsonify({'message': 'Failed to add photo'}), 400
@@ -202,27 +212,57 @@ def addPhoto():
 
 
 
+
 ###########################################################################################
 # Method's in this section controls the camera/face cam
 
 #When user hits enable/disable notifications, this route is used to update the val of notications variable
-@app.route('/enable_camera', methods=['POST'])
-def enable_camera():
-
+@app.route('/camera_notifications', methods=['POST'])
+def camera_notification_settings():
     # Get the JSON data from the request
     data = request.get_json()
     
     # Ensure the required fields are present
-    if not data or 'userID' not in data or 'enable_camera' not in data:
+    if not data or 'userID' not in data:
         return jsonify({'error': 'Invalid data'}), 400
     
     user_id = data['userID']
-    camera_notification_switch = data['enable_camera']
 
-    #Run function to change the notification setting for the esp32 cam
-    update_enable_notifications(user_id,camera_notification_switch)
+    # Retrieve the current value of enableNotifications
+    user_ref = db.reference(f'users/{user_id}')
+    user_data = user_ref.get()
+
+    if not user_data or 'enableNotifications' not in user_data:
+        return jsonify({'error': 'User data not found or incomplete'}), 400
+
+    # Toggle the enableNotifications value
+    current_value = user_data['enableNotifications']
+    new_value = not current_value
+
+    # Update the value in the database
+    update_enable_notifications(user_id, new_value)
     
-    return jsonify({'message': 'Notification Switched'}), 200
+    return jsonify({'message': f'Notification switched to {"enabled" if new_value else "disabled"}'}), 200
+
+
+
+#Call this to turn on the facial recoginition camera
+@app.route('/camera_on', methods=['POST'])
+def camera_on():
+    data = request.get_json()
+
+    if not data or 'userID' not in data:
+        return jsonify({'error': 'Invalid data'}), 400
+    
+    user_id = data['userID']
+    
+    # Step 1: Populate the faces folder
+    populate_faces_folder(user_id)
+
+    # Step 2: Start the camera
+    subprocess.Popen(['python', 'main.py'])  #run's main.py
+
+    return jsonify({'message': 'Camera is now on'}), 200
 
 
 #######################################################################################

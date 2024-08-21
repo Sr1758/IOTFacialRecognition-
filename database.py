@@ -1,4 +1,7 @@
 import firebase_admin
+import subprocess
+import os
+import shutil
 from firebase_admin import db, credentials, storage
 
 #authenticate to firebase
@@ -19,6 +22,7 @@ def check_user_exists(user_id):
     ref = db.reference('users')
     user_ref = ref.child(user_id)
     return user_ref.get() is not None
+
 
 '''
 Uses realtime database to store account data.
@@ -307,4 +311,58 @@ def retrieve_user_structure(user_id):
         return None
 
     return user_data
+
+
+'''
+These methods are for populating the faces folder for the camera
+'''
+FACES_FOLDER = 'faces' #path to faces folder
+
+def populate_faces_folder(user_id):
+    # Get user data from the database
+    user_data = retrieve_user_structure(user_id)  # Modify as needed to get user data
+    albums = user_data.get('albums', {})
+
+    # Check if there are any albums to process
+    if not albums or all(album is None or not album.get('images', []) for album in albums):
+        print("No albums or images found to populate the faces folder.")
+        return
+
+    # Iterate over the albums and process images
+    for album in albums:
+        if album:  # Ensure album is not None
+            images = album.get('images', {})
+            if not images or all(img_data is None for img_data in images):
+                continue  # Skip if no images or only null entries
+            
+            for img_data in images:
+                if img_data:  # Ensure img_data is not None
+                    storage_path = img_data.get('storagePath')
+                    if storage_path:
+                        # Logic to process and populate the faces folder
+                        download_image_and_save(storage_path)
+
+def download_image_and_save(storage_path):
+    try:
+        # Reference to storage bucket
+        bucket = storage.bucket()
+        
+        # Reference to the blob
+        blob = bucket.blob(storage_path)
+        
+        # Check if blob exists
+        if not blob.exists():
+            print(f"Blob {storage_path} does not exist in storage.")
+            return
+        
+        # Define the local path where the image should be saved
+        local_path = os.path.join(FACES_FOLDER, os.path.basename(storage_path))
+        
+        # Download the blob to a local file
+        blob.download_to_filename(local_path)
+        print(f"Downloaded {storage_path} to {local_path}")
+    
+    except Exception as e:
+        print(f"Failed to download and save image from {storage_path}: {e}")
+
 
