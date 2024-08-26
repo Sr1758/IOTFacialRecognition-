@@ -118,6 +118,64 @@ def create_album(user_id, album_info):
     return 1
 
 '''
+Delete album images and album entity in realtime database
+'''
+def delete_album(user_id, album_id):
+
+    #Attempt to clean album
+    res = clean_album(user_id, album_id)
+
+    if res == "No files found under user_id and album_id given" :
+        return "Could not clean album"
+    else:
+        album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
+
+        data = album_ref.get()
+
+        if not data:
+            return "Album does not exist"
+
+        album_ref.delete()
+
+        return 1
+
+
+'''
+Clean out all the images within an album.
+'''
+def clean_album(user_id, album_id):
+    try:
+        path = 'images/'
+        bucket = storage.bucket()
+
+        # Character array used to sort the image list for the images that correspond to a particular user's album
+        sorting_by_name = f'{user_id}-{album_id}'
+
+        # Lists location of all images that correspond to the a particular album
+        blobs = list(bucket.list_blobs(prefix=sorting_by_name))
+        print(f"Blobs found: {blobs}")
+
+        # If no images found under user and album specified to check
+        if not blobs:
+            print(f"No files found under user_id {user_id} and album_id {album_id}")
+            return "No files found under user_id and album_id given"
+
+        # Delete every image that corresponds to that user and album
+        for blob in blobs:
+            print(f"Deleting blob: {blob.name}")
+            blob.delete()
+
+        album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
+        album_ref.update({'numImages': 0})
+        print(f"Album {album_id} for user {user_id} cleaned successfully")
+
+        return 1
+    except Exception as e:
+        print(f"An error occurred while cleaning album {album_id} for user {user_id}: {e}")
+        return "Unknown error"
+
+
+'''
 Retrieves all albumID and name data from each album from the database
 '''
 def retrieve_all_albums(user_id):
@@ -239,61 +297,50 @@ def add_photo(user_id, album_id, local_image_path, storage_image_path):
 
 
 '''
-Clean out all the images within an album.
+Use to delete photo's within an album
 '''
-def clean_album(user_id, album_id):
+
+
+def delete_photo(user_id, album_id, image_id):
     try:
-        path = 'images/'
+        # Reference to the specific image in the album
+        image_ref = db.reference(f'users/{user_id}/albums/{album_id}/images/{image_id}')
+        image_data = image_ref.get()
+
+        if not image_data:
+            return "Image does not exist"
+
+        # Get the storage path for the image
+        storage_image_path = image_data.get('storagePath')
+
+        # Reference to storage
         bucket = storage.bucket()
+        blob = bucket.blob(storage_image_path)
 
-        # Character array used to sort the image list for the images that correspond to a particular user's album
-        sorting_by_name = f'{user_id}-{album_id}'
-
-        # Lists location of all images that correspond to the a particular album
-        blobs = list(bucket.list_blobs(prefix=sorting_by_name))
-        print(f"Blobs found: {blobs}")
-
-        # If no images found under user and album specified to check
-        if not blobs:
-            print(f"No files found under user_id {user_id} and album_id {album_id}")
-            return "No files found under user_id and album_id given"
-
-        # Delete every image that corresponds to that user and album
-        for blob in blobs:
-            print(f"Deleting blob: {blob.name}")
+        # Delete the image from Firebase Storage
+        if blob.exists():
             blob.delete()
+        else:
+            print(f"Blob {storage_image_path} does not exist in storage.")
+            return "Image not found in storage"
 
+        # Remove the photo information from the database
+        image_ref.delete()
+
+        # Update the number of images in the album
         album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
-        album_ref.update({'numImages': 0})
-        print(f"Album {album_id} for user {user_id} cleaned successfully")
+        album_data = album_ref.get()
+
+        if 'numImages' in album_data:
+            num_images = album_data['numImages'] - 1
+            album_ref.update({'numImages': num_images})
 
         return 1
+
     except Exception as e:
-        print(f"An error occurred while cleaning album {album_id} for user {user_id}: {e}")
-        return "Unknown error"
+        print(f"Failed to delete image {image_id} from album {album_id} for user {user_id}: {e}")
+        return "Failed to delete photo"
 
-
-'''
-Delete album images and album entity in realtime database
-'''
-def delete_album(user_id, album_id):
-
-    #Attempt to clean album
-    res = clean_album(user_id, album_id)
-
-    if res == "No files found under user_id and album_id given" :
-        return "Could not clean album"
-    else:
-        album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
-
-        data = album_ref.get()
-
-        if not data:
-            return "Album does not exist"
-
-        album_ref.delete()
-
-        return 1
     
 
 '''

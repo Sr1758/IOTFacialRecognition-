@@ -211,6 +211,32 @@ def addPhoto():
 
 
 
+@app.route('/deletePhoto', methods=['POST'])
+def deletePhoto():
+    # Get the JSON data from the request
+    data = request.get_json()
+
+    # Ensure the required fields are present
+    if not data or 'userID' not in data or 'albumID' not in data or 'imageID' not in data:
+        return jsonify({'error': 'Invalid data: userID, albumID, or imageID required'}), 400
+
+    user_id = data['userID']
+    album_id = data['albumID']
+    image_id = data['imageID']
+
+    # Call the delete_photo function
+    result = delete_photo(user_id, album_id, image_id)
+
+    if result == 1:
+        return jsonify({'message': 'Photo deleted successfully'}), 200
+    elif result == "Image does not exist":
+        return jsonify({'error': 'Image does not exist'}), 400
+    elif result == "Image not found in storage":
+        return jsonify({'error': 'Image not found in storage'}), 400
+    else:
+        return jsonify({'error': 'Failed to delete photo'}), 500
+
+
 
 
 ###########################################################################################
