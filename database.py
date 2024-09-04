@@ -312,20 +312,87 @@ def delete_album(user_id, album_id):
     #Attempt to clean album
     res = clean_album(user_id, album_id)
 
-    if res == "No files found under user_id and album_id given" :
-        return "Could not clean album"
-    else:
-        album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
+    album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
 
-        data = album_ref.get()
+    data = album_ref.get()
 
-        if not data:
-            return "Album does not exist"
+    if not data:
+        return "Album does not exist"
 
-        album_ref.delete()
+    album_ref.delete()
 
-        return 1
+    return 1
 
+
+#Retrieve url of all photos for a particular user
+def retrieve_all_user_photos(user_id):
+    try:
+        # Reference to the user's albums in the Realtime Database
+        albums_ref = db.reference(f'users/{user_id}/albums')
+        albums_data = albums_ref.get()
+
+        if not albums_data:
+            print("No albums found for this user.")
+            return []
+        
+        print('albums:', albums_data)
+
+        # Initialize an empty list to collect all image URLs
+        all_image_urls = []
+        bucket = storage.bucket()
+
+        # Check if albums_data is a list
+        if isinstance(albums_data, list):
+            albums_data = {str(index): album for index, album in enumerate(albums_data) if album}
+
+        # Iterate over each album
+        for album_id, album_info in albums_data.items():
+            # Check if the album contains images
+            if 'numImages' in album_info and album_info['numImages'] > 0:
+                num_images = album_info['numImages']
+
+                # Collect URLs for each image in the album
+                for img_num in range(1, num_images + 1):
+                    img_prefix = f"{user_id}-{album_id}-{img_num}"
+                    storage_image_path = f"images/{img_prefix}.png"
+
+                    # Retrieve the image URL from Firebase Storage
+                    blob = bucket.blob(storage_image_path)
+                    image_url = blob.generate_signed_url(version="v4", expiration=3600)  # URL valid for 1 hour
+                    all_image_urls.append(image_url)
+
+        return all_image_urls
+
+    except Exception as e:
+        print(f"Error in retrieve_all_user_photos: {e}")
+        return []
+
+def download_image(image_path):
+    try:
+        # Reference to Firebase Storage
+        bucket = storage.bucket()
+
+        # Create a blob object for the image
+        blob = bucket.blob(image_path)
+
+        # Generate a signed URL for accessing the image
+        image_url = blob.generate_signed_url(version="v4", expiration=3600)  # URL valid for 1 hour
+
+        # Download the image data from the URL
+        import requests
+        response = requests.get(image_url)
+        
+        if response.status_code == 200:
+            return response.content
+        else:
+            print(f"Failed to download image, status code: {response.status_code}")
+            return None
+
+    except Exception as e:
+        print(f"Error in download_image: {e}")
+        return None
+
+    
 
 
 

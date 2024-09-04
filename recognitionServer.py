@@ -5,10 +5,16 @@ import cv2
 import numpy as np 
 import dlib
 import face_recognition
+
+#Database functions imported from database.py
 from database import create_album, clean_album, retrieve_all_albums 
 from database import add_photo, update_enable_notifications, delete_album
 from database import updateCamera, validate_model_number
+from database import retrieve_all_user_photos, download_image
+
+#function imported from texting.py. Used to text a caregiver.
 from texting import phone_check, text_to_user
+from faceRecognition import facial_recognition, extract_album_id
 
 app = Flask(__name__)
 
@@ -142,6 +148,9 @@ def deleteAlbum():
         user_id = int(user_id)
         album_id = int(album_id)
 
+        print('user_id: ', user_id)
+        print('album_id: ', album_id)
+
         if  not user_id or not album_id:
             return jsonify({"success": False, "message": "Data could not be properly retrieved"}), 400
         
@@ -243,6 +252,8 @@ def getAlbums():
 
     # Get the JSON data from the request
     data = request.get_json()
+
+    print('data:', data)
     
     # Ensure the required fields are present
     if not data or 'userID' not in data:
@@ -250,15 +261,25 @@ def getAlbums():
     
     user_id = data['userID']
 
+    print('userID: ', user_id)
+
     #Run function to change the notification setting for the esp32 cam
     temp = retrieve_all_albums(user_id)
+
+    print('albumData: ', temp)
 
     #print(temp)
 
     if temp == 0:
         return jsonify({'message': 'Server failed to retrieve album data'}), 400
     
-    return temp, 200
+    # Convert albumIDs to integers
+    album_data = {
+        'albumID': [int(x) for x in temp['albumID']],
+        'names': temp['names']
+    }
+
+    return jsonify(album_data), 200
 
 #This method is used to register a camera model number to a specific account
 @app.route('/cam_model', methods=['POST'])
@@ -291,6 +312,86 @@ def update_cam_model_number():
     else:
         return jsonify({'message': 'Unknown error'}), 400
 
+
+#Facial reocngition post request
+    
+@app.route('/faceRecognize', methods=['POST'])
+def recognizeFace():
+
+    try:
+
+        # Retrieve JSON data from the request
+        data = request.get_json()
+
+        # Extract base64 image data
+        base64_image = data.get('imageData')
+        user_id = data.get('userID')
+
+        user_id = int(user_id)
+
+        if not base64_image or not user_id:
+            return jsonify({"success": False, "message": "Failed to upload image"}), 400
+
+        # Decode the base64 image data
+        image_data = base64.b64decode(base64_image)
+
+        # Convert the byte string into a NumPy array
+        np_image = np.frombuffer(image_data, dtype=np.uint8)
+
+        # Decode the NumPy array into an image
+        image = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
+
+        '''
+        # Define the path to save the image
+        file_path = 'new_image.png'
+
+        # Save the image to the specified path
+        cv2.imwrite(file_path, image)
+        '''
+        
+        img_url_list = retrieve_all_user_photos(user_id)
+
+        print('img_url_list: ', img_url_list)
+
+        # Initialize a dictionary to keep count of matches per album
+        match_counts = {}
+
+        # Iterate through the list of image URLs
+        for url in img_url_list:
+            # Extract the album ID from the URL
+            album_id = extract_album_id(url)  # This function should extract the album ID from the URL structure
+
+            print("albumID: ", album_id)
+
+            # Download and decode the image
+            photo_data = download_image(url)
+            if not photo_data:
+                continue
+
+            np_photo_img = np.frombuffer(photo_data, np.uint8)
+            stored_img = cv2.imdecode(np_photo_img, cv2.IMREAD_COLOR)
+
+            # Perform facial recognition
+            if facial_recognition(image, stored_img):
+                if album_id not in match_counts:
+                    match_counts[album_id] = 0
+                match_counts[album_id] += 1
+
+        # Determine the album with the most matches
+        if match_counts:
+            most_recognized_album_id = max(match_counts, key=match_counts.get)
+            return jsonify({
+                'status': 'success',
+                'message': 'Face recognized',
+                'album_id': most_recognized_album_id,
+                'matches': match_counts[most_recognized_album_id]
+        })
+        else:
+            return jsonify({'status': 'fail', 'message': 'No match found'})
+
+    except Exception as e:
+        print(f"Error in recognize_face: {e}")
+        return jsonify({'status': 'error', 'message': str(e)})
 
 if __name__ == "__main__":
     app.run(port=3000, debug=True)
