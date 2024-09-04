@@ -4,6 +4,15 @@ import re
 
 def facial_recognition(image_to_check, stored_image):
     try:
+
+        print("image_to_check", image_to_check)
+        print("stored_image", stored_image)
+
+        # Check if images are None or empty
+        if image_to_check is None or stored_image is None:
+            print("One of the images is empty or failed to load.")
+            return False
+        
         # Convert images to RGB (if needed)
         rgb_image_to_check = cv2.cvtColor(image_to_check, cv2.COLOR_BGR2RGB)
         rgb_stored_image = cv2.cvtColor(stored_image, cv2.COLOR_BGR2RGB)
@@ -21,17 +30,17 @@ def facial_recognition(image_to_check, stored_image):
         
         return results[0]
     
+    except cv2.error as cv2_err:
+        print(f"OpenCV error in facial_recognition: {cv2_err}")
+        return False
     except Exception as e:
-        print(f"Error in facial_recognition: {e}")
+        print(f"General error in facial_recognition: {e}")
         return False
     
-def extract_album_id(url):
-    # This regex matches the userID, albumID, and imgNumber in the format userID-albumID-imgNumber.png
-    pattern = r'/(\d+)-(\d+)-(\d+)\.png'
-    match = re.search(pattern, url)
-
-    if match:
-        user_id, album_id, img_number = match.groups()
-        return album_id
-    else:
-        return None
+# Function to extract userID, albumID, and photoID
+def extract_ids_from_url(url):
+    # Extract the part after "images/"
+    filename = url.split('/')[-1].split('?')[0]
+    # Remove the ".png" part and split by "-"
+    userID, albumID, photoID = filename.replace('.png', '').split('-')
+    return userID, albumID, photoID

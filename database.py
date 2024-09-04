@@ -375,22 +375,43 @@ def download_image(image_path):
         # Create a blob object for the image
         blob = bucket.blob(image_path)
 
-        # Generate a signed URL for accessing the image
-        image_url = blob.generate_signed_url(version="v4", expiration=3600)  # URL valid for 1 hour
+        # Local path where the file will be saved
+        storage_path = "downloaded_image.png"
 
-        # Download the image data from the URL
-        import requests
-        response = requests.get(image_url)
+        # Download the image data as bytes
+        image_data = blob.download_as_bytes()
+
+        print(f"File downloaded successfully.")
         
-        if response.status_code == 200:
-            return response.content
-        else:
-            print(f"Failed to download image, status code: {response.status_code}")
-            return None
-
+        return image_data
+    
     except Exception as e:
         print(f"Error in download_image: {e}")
         return None
+
+def retrieve_user_id_by_model_number(model_number):
+    try:
+        # Reference to the users collection in the Realtime Database
+        ref = db.reference('users')
+        users = ref.get()
+
+        if not users:
+            #print("No users found.")
+            return None
+
+        # Iterate over the users data and check for the matching model number
+        for user_id, user_data in users.items():
+            if 'modelNumber' in user_data and user_data['modelNumber'] == model_number:
+                #print(f"User with model number {model_number} found: User ID is {user_id}")
+                return user_id
+
+        #print(f"No user found with model number {model_number}")
+        return None
+
+    except Exception as e:
+        print(f"Error in retrieve_user_id_by_model_number: {e}")
+        return None
+
 
     
 

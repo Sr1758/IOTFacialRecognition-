@@ -5,16 +5,18 @@ import cv2
 import numpy as np 
 import dlib
 import face_recognition
+import requests
 
 #Database functions imported from database.py
 from database import create_album, clean_album, retrieve_all_albums 
 from database import add_photo, update_enable_notifications, delete_album
 from database import updateCamera, validate_model_number
 from database import retrieve_all_user_photos, download_image
+from database import retrieve_user_id_by_model_number
 
 #function imported from texting.py. Used to text a caregiver.
 from texting import phone_check, text_to_user
-from faceRecognition import facial_recognition, extract_album_id
+from faceRecognition import facial_recognition, extract_ids_from_url
 
 app = Flask(__name__)
 
@@ -313,6 +315,61 @@ def update_cam_model_number():
         return jsonify({'message': 'Unknown error'}), 400
 
 
+@app.route('/obtain_credentials', methods=['POST'])
+def obtain_credentials():
+
+    try:
+
+        # Retrieve JSON data from the request
+        data = request.get_json()
+
+        # Retrieves model number field for camera from json 
+        camera_id = data.get('camera_id')
+
+        print('camera_id: ', camera_id)
+
+        outcome = retrieve_user_id_by_model_number(camera_id)
+
+        #Using the userID retrieve the phone number information
+
+         # Check if the userID was found
+        if outcome:
+            # Prepare data to send in the POST request to /contacts_for_camera
+            post_data = {'userID': outcome}
+            
+            # Make a POST request to /contacts_for_camera route
+            response = requests.post('http://127.0.0.1:3002/contacts_for_camera', json=post_data)
+            
+            # Check the response status code and content
+            if response.status_code == 200:
+                contact_info = response.json()
+                #print('Contact Info:', contact_info)
+                caregiver_carrier = contact_info.get('caregiver_carrier')
+                caregiver_phone = contact_info.get('caregiver_phone')
+                patient_carrier = contact_info.get('patient_carrier')
+                patient_phone = contact_info.get('patient_phone')    
+                userID = outcome 
+
+                '''
+                print('caregiver_carrier: ', caregiver_carrier)
+                print('caregiver_phone: ', caregiver_phone)
+                print('patient_carrier: ', patient_carrier)
+                print('patient_phone: ', patient_phone)
+                '''
+                
+                return jsonify({'userID': userID, 'caregiver_phone_carrier': caregiver_carrier, 'caregiver_phone_number': caregiver_phone, 'patient_phone_carrier': patient_carrier, 'patient_phone_number': patient_phone}), 200
+            else:
+                print('Error retrieving contact information')
+                return jsonify({'status': 'error', 'message': 'Failed to retrieve contact information'}), 500
+
+        else:
+            print('User ID not found for given camera_id')
+            return jsonify({'status': 'error', 'message': 'User ID not found'}), 404
+    
+    except Exception as e:
+        print(f"Error in recognize_face: {e}")
+        return jsonify({'status': 'error', 'message': str(e)})
+
 #Facial reocngition post request
     
 @app.route('/faceRecognize', methods=['POST'])
@@ -359,12 +416,18 @@ def recognizeFace():
         # Iterate through the list of image URLs
         for url in img_url_list:
             # Extract the album ID from the URL
-            album_id = extract_album_id(url)  # This function should extract the album ID from the URL structure
+            userID, albumID, photoID = extract_ids_from_url(url)  # This function should extract the album ID from the URL structure
 
-            print("albumID: ", album_id)
+            #print("userID: ", userID)
+            #print("albumID: ", albumID)
+            #print("photoID: ", photoID)
+
+            base = "images/"
+
+            base_url = base + userID + "-" + albumID + "-" + photoID + ".png"
 
             # Download and decode the image
-            photo_data = download_image(url)
+            photo_data = download_image(base_url)
             if not photo_data:
                 continue
 
@@ -373,9 +436,9 @@ def recognizeFace():
 
             # Perform facial recognition
             if facial_recognition(image, stored_img):
-                if album_id not in match_counts:
-                    match_counts[album_id] = 0
-                match_counts[album_id] += 1
+                if albumID not in match_counts:
+                    match_counts[albumID] = 0
+                match_counts[albumID] += 1
 
         # Determine the album with the most matches
         if match_counts:
@@ -394,4 +457,4 @@ def recognizeFace():
         return jsonify({'status': 'error', 'message': str(e)})
 
 if __name__ == "__main__":
-    app.run(port=3000, debug=True)
+    app.run(host = '192.168.1.131', port=3000, debug=True)
