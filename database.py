@@ -335,7 +335,7 @@ def retrieve_all_user_photos(user_id):
             print("No albums found for this user.")
             return []
         
-        print('albums:', albums_data)
+        #print('albums:', albums_data)
 
         # Initialize an empty list to collect all image URLs
         all_image_urls = []
@@ -411,6 +411,33 @@ def retrieve_user_id_by_model_number(model_number):
     except Exception as e:
         print(f"Error in retrieve_user_id_by_model_number: {e}")
         return None
+
+def get_enable_notifications(user_id):
+    user_ref = db.reference(f'users/{user_id}')
+    
+    # Retrieve the user data
+    user_data = user_ref.get()
+
+    if not user_data:
+        return "User does not exist"
+
+    # Retrieve the enableNotifications value
+    if 'enableNotifications' in user_data:
+        return user_data['enableNotifications']
+    else:
+        return "Notification setting not found"
+
+def get_album_data(user_id, album_id):
+    album_ref = db.reference(f'users/{user_id}/albums/{album_id}')
+    
+    # Retrieve the album data
+    album_data = album_ref.get()
+
+    if not album_data:
+        return "Album does not exist"
+    
+    return album_data
+
 
 
     

@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, session
 import os
 import base64
 import cv2 
@@ -8,17 +8,14 @@ import face_recognition
 import requests
 
 #Database functions imported from database.py
-from database import create_album, clean_album, retrieve_all_albums 
-from database import add_photo, update_enable_notifications, delete_album
-from database import updateCamera, validate_model_number
-from database import retrieve_all_user_photos, download_image
-from database import retrieve_user_id_by_model_number
+from database import *
 
 #function imported from texting.py. Used to text a caregiver.
 from texting import phone_check, text_to_user
 from faceRecognition import facial_recognition, extract_ids_from_url
 
 app = Flask(__name__)
+app.secret_key = 'FLFIJLIEFJSLIJALIJA556433'
 
 @app.route('/upload', methods=['POST'])
 def upload_image():
@@ -87,28 +84,6 @@ def upload_image():
         # uses face_recognition (deep learning) 
         faces = face_recognition.face_locations(image)
         
-        #uses haar cascades
-
-        '''
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
- 
-        print("faces: ")
-        print(len(faces))
-    
-        # Post-process to filter out false positives
-        filtered_faces = []
-        for (x, y, w, h) in faces:
-            aspect_ratio = w / float(h)
-            if 0.75 < aspect_ratio < 1.3: 
-                filtered_faces.append((x, y, w, h))
-
-        faces = filtered_faces
-
-        print("filtered face number: ")
-        print(len(faces))
-
-        '''
-
         print("filtered face number: ")
         print(len(faces))
         
@@ -326,7 +301,7 @@ def obtain_credentials():
         # Retrieves model number field for camera from json 
         camera_id = data.get('camera_id')
 
-        print('camera_id: ', camera_id)
+        #print('camera_id: ', camera_id)
 
         outcome = retrieve_user_id_by_model_number(camera_id)
 
@@ -380,9 +355,19 @@ def recognizeFace():
         # Retrieve JSON data from the request
         data = request.get_json()
 
-        # Extract base64 image data
+        # Extract base64 image data and user credentials
         base64_image = data.get('imageData')
         user_id = data.get('userID')
+
+        caregiver_phone = data.get('caregiver_phone_number')
+        patient_phone = data.get('patient_phone_number')
+        caregiver_carrier = data.get('caregiver_carrier')
+        patient_carrier = data.get('patient_carrier')
+
+        print("caregiver_phone: ", caregiver_phone)
+        print("patient_phone: ", patient_phone)
+        print("caregiver_carrier: ", caregiver_carrier)
+        print("patient_carrier: ", patient_carrier)
 
         user_id = int(user_id)
 
@@ -398,17 +383,22 @@ def recognizeFace():
         # Decode the NumPy array into an image
         image = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
 
+        #Temporary to see output -------------------------------------
+        
         '''
-        # Define the path to save the image
-        file_path = 'new_image.png'
+        # Create a directory to store the images, based on the user_id
+        save_directory = f"images/user_{user_id}"
+        os.makedirs(save_directory, exist_ok=True)
 
-        # Save the image to the specified path
-        cv2.imwrite(file_path, image)
+        # Define the file name with the user_id and current timestamp
+        file_path = os.path.join(save_directory, f"{user_id}_image.jpg")
+
+        # Save the image using OpenCV
+        success = cv2.imwrite(file_path, image)        
         '''
+        #-----------------------------------------------------
         
         img_url_list = retrieve_all_user_photos(user_id)
-
-        print('img_url_list: ', img_url_list)
 
         # Initialize a dictionary to keep count of matches per album
         match_counts = {}
@@ -418,16 +408,13 @@ def recognizeFace():
             # Extract the album ID from the URL
             userID, albumID, photoID = extract_ids_from_url(url)  # This function should extract the album ID from the URL structure
 
-            #print("userID: ", userID)
-            #print("albumID: ", albumID)
-            #print("photoID: ", photoID)
-
             base = "images/"
 
             base_url = base + userID + "-" + albumID + "-" + photoID + ".png"
 
             # Download and decode the image
             photo_data = download_image(base_url)
+
             if not photo_data:
                 continue
 
@@ -439,10 +426,28 @@ def recognizeFace():
                 if albumID not in match_counts:
                     match_counts[albumID] = 0
                 match_counts[albumID] += 1
-
+            
         # Determine the album with the most matches
         if match_counts:
+
             most_recognized_album_id = max(match_counts, key=match_counts.get)
+
+            #Check whether texts are enabled
+
+            enable_notifications_val = get_enable_notifications(user_id)
+
+            if ((enable_notifications_val == "User does not exist") or (enable_notifications_val == "Notification setting not found")):
+                return jsonify({'status': 'fail', 'message': 'Notifications is not enabled'})
+
+            #Retrieve name and bio using userID and albumID
+            album_data = get_album_data(user_id, most_recognized_album_id)
+
+            bio = album_data['bio']
+            name = album_data['name']
+
+            #Test to patient number
+            text_to_user(patient_phone, patient_carrier, name, bio)
+            
             return jsonify({
                 'status': 'success',
                 'message': 'Face recognized',
@@ -457,4 +462,6 @@ def recognizeFace():
         return jsonify({'status': 'error', 'message': str(e)})
 
 if __name__ == "__main__":
-    app.run(host = '192.168.1.131', port=3000, debug=True)
+    #in ECE building 192.168.1.131
+    #regurlar can leave blank or 172.25.0.121
+    app.run(host = '192.168.1.167', port=3000, debug=True)

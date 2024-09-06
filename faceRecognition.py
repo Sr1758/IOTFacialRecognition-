@@ -5,8 +5,8 @@ import re
 def facial_recognition(image_to_check, stored_image):
     try:
 
-        print("image_to_check", image_to_check)
-        print("stored_image", stored_image)
+        #print("image_to_check", image_to_check)
+       # print("stored_image", stored_image)
 
         # Check if images are None or empty
         if image_to_check is None or stored_image is None:
