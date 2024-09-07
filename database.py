@@ -1,6 +1,7 @@
 import firebase_admin
 from firebase_admin import db, credentials, storage
 import os
+import pickle
 
 #authenticate to firebase
 cred = credentials.Certificate("credentials.json")
@@ -437,6 +438,58 @@ def get_album_data(user_id, album_id):
         return "Album does not exist"
     
     return album_data
+
+def upload_pickle(file_path, remote_path):
+    bucket = storage.bucket()
+    blob = bucket.blob(remote_path)
+    
+    with open(file_path, 'rb') as file:
+        blob.upload_from_file(file)
+    
+    print(f'File {file_path} uploaded to {remote_path}.')
+
+def delete_local_file(file_path):
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        print(f'Local file {file_path} deleted.')
+    else:
+        print(f'File {file_path} does not exist.')
+
+def download_pickle(userID):
+    bucket = storage.bucket()
+    blob = bucket.blob(f'{userID}.pkl')
+    temp = f'{userID}.pkl'
+
+    blob.download_to_filename(temp)
+    print(f'File {userID}.pkl downloaded.')
+    
+    return open(temp, 'rb')
+
+def delete_pickle(file_path):
+    """
+    Deletes a pickle file from Firebase Storage using the given file path.
+
+    Args:
+        file_path (str): The file path in Firebase Storage where the pickle file is located.
+    """
+    try:
+        # Get reference to the Firebase storage bucket
+        bucket = storage.bucket()
+
+        # Get reference to the specific file (blob) in Firebase Storage
+        blob = bucket.blob(file_path)
+
+        # Check if the file exists in Firebase Storage
+        if blob.exists():
+            # Delete the file
+            blob.delete()
+            print(f"File {file_path} deleted successfully from Firebase Storage.")
+        else:
+            print(f"File {file_path} does not exist in Firebase Storage.")
+    except Exception as e:
+        print(f"Error deleting file from Firebase Storage: {e}")
+
+
 
 
 

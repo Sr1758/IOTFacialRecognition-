@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, session
+from flask import Flask, request, jsonify
 import os
 import base64
 import cv2 
@@ -6,6 +6,8 @@ import numpy as np
 import dlib
 import face_recognition
 import requests
+
+import pickle
 
 #Database functions imported from database.py
 from database import *
@@ -15,7 +17,6 @@ from texting import phone_check, text_to_user
 from faceRecognition import facial_recognition, extract_ids_from_url
 
 app = Flask(__name__)
-app.secret_key = 'FLFIJLIEFJSLIJALIJA556433'
 
 @app.route('/upload', methods=['POST'])
 def upload_image():
@@ -383,21 +384,6 @@ def recognizeFace():
         # Decode the NumPy array into an image
         image = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
 
-        #Temporary to see output -------------------------------------
-        
-        '''
-        # Create a directory to store the images, based on the user_id
-        save_directory = f"images/user_{user_id}"
-        os.makedirs(save_directory, exist_ok=True)
-
-        # Define the file name with the user_id and current timestamp
-        file_path = os.path.join(save_directory, f"{user_id}_image.jpg")
-
-        # Save the image using OpenCV
-        success = cv2.imwrite(file_path, image)        
-        '''
-        #-----------------------------------------------------
-        
         img_url_list = retrieve_all_user_photos(user_id)
 
         # Initialize a dictionary to keep count of matches per album
@@ -460,6 +446,8 @@ def recognizeFace():
     except Exception as e:
         print(f"Error in recognize_face: {e}")
         return jsonify({'status': 'error', 'message': str(e)})
+    
+
 
 if __name__ == "__main__":
     #in ECE building 192.168.1.131
