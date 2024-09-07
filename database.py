@@ -457,13 +457,13 @@ def delete_local_file(file_path):
 
 def download_pickle(userID):
     bucket = storage.bucket()
-    blob = bucket.blob(f'{userID}.pkl')
+    blob = bucket.blob(f'encodings/{userID}.pkl')
     temp = f'{userID}.pkl'
 
     blob.download_to_filename(temp)
     print(f'File {userID}.pkl downloaded.')
     
-    return open(temp, 'rb')
+    return open(temp, 'rb'), temp
 
 def delete_pickle(file_path):
     """
@@ -490,6 +490,39 @@ def delete_pickle(file_path):
         print(f"Error deleting file from Firebase Storage: {e}")
 
 
+def check_pickle_exists(userID):
+    """
+    Check if a pickle file exists for the given userID in Firebase Storage.
+
+    Args:
+        userID (int or str): The user ID whose pickle file needs to be checked.
+
+    Returns:
+        bool: True if the pickle file exists, False otherwise.
+    """
+    try:
+        # Construct the path to the pickle file in Firebase Storage
+        pickle_path = f'encodings/{userID}.pkl'
+        
+        # Reference to the storage bucket
+        bucket = storage.bucket()
+
+        # Create a blob object with the pickle path
+        blob = bucket.blob(pickle_path)
+
+        # Check if the file exists in Firebase Storage
+        file_exists = blob.exists()
+
+        # Print a message based on the result
+        if file_exists:
+            print(f"Pickle file for user {userID} exists in Firebase Storage.")
+        else:
+            print(f"Pickle file for user {userID} does not exist in Firebase Storage.")
+
+        return file_exists
+    except Exception as e:
+        print(f"Error checking file existence: {str(e)}")
+        return False
 
 
 

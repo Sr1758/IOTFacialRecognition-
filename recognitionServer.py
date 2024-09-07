@@ -6,11 +6,10 @@ import numpy as np
 import dlib
 import face_recognition
 import requests
-
 import pickle
-
 #Database functions imported from database.py
 from database import *
+from pickeProgram import *
 
 #function imported from texting.py. Used to text a caregiver.
 from texting import phone_check, text_to_user
@@ -44,11 +43,6 @@ def upload_image():
         # Decode the NumPy array into an image
         image = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
 
-        '''
-        Check if there is a SINGULAR face in the image. If there is a single page, then proceed to store image.
-        * There is more than one face or there is no face. Give json error response message.
-        '''
-
         # Use face_recognition to locate faces
         face_locations = face_recognition.face_locations(image)
 
@@ -75,13 +69,6 @@ def upload_image():
         #Reduce noice before detection
         gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
-        # Detect faces in the image
-
-        '''
-        Change these variables so that face detector is more sensitive (or figure out how to set up 
-        facial_reocgnition library for ML facial recognition)
-        '''
-
         # uses face_recognition (deep learning) 
         faces = face_recognition.face_locations(image)
         
@@ -102,10 +89,22 @@ def upload_image():
         # Call the add_photo function to upload the image
         result = add_photo(user_id, album_id, local_image_path)
 
+        print(result)
+
         # Remove the temporary local image file
         os.remove(local_image_path)
 
+        '''
+        If there is a pickle file with the name 'userID.pkl', then run update_face_encodings.
+        If there is no such pickle file in firebase storage, then run face_encoding_pickle.
+        '''
+        # If the upload was successful
         if result == 1:
+            # Check if pickle file exists for the user
+            if check_pickle_exists(user_id):
+                update_face_encodings(image, album_id, user_id)
+            else:
+                create_face_encoding_pickle(image, album_id, user_id)
             return jsonify({"success": True, "message": "Image uploaded successfully"}), 200
         else:
             return jsonify({"success": False, "message": "Failed to upload image"}), 400
@@ -134,6 +133,11 @@ def deleteAlbum():
         
         res = delete_album(user_id, album_id)
 
+        print(res)
+
+        #Run remove_user_encodings
+        remove_user_encodings(album_id, user_id)
+
         if res!=1:
             print(res)
             return jsonify({"success": False, "message": "Data could not be sucessfully cleaned or deleted"}), 400
@@ -161,6 +165,10 @@ def clearAlbum():
             return jsonify({"success": False, "message": "Data could not be properly retrieved"}), 400
         
         res = clean_album(user_id,album_id)
+
+        #Run remove_user_encodings
+        #Run remove_user_encodings
+        remove_user_encodings(album_id, user_id)
 
         if res!=1:
             print(res)
@@ -349,107 +357,84 @@ def obtain_credentials():
 #Facial reocngition post request
     
 @app.route('/faceRecognize', methods=['POST'])
-def recognizeFace():
-
+def recognize_face():
     try:
-
         # Retrieve JSON data from the request
         data = request.get_json()
 
         # Extract base64 image data and user credentials
         base64_image = data.get('imageData')
         user_id = data.get('userID')
-
         caregiver_phone = data.get('caregiver_phone_number')
         patient_phone = data.get('patient_phone_number')
         caregiver_carrier = data.get('caregiver_carrier')
         patient_carrier = data.get('patient_carrier')
 
-        print("caregiver_phone: ", caregiver_phone)
-        print("patient_phone: ", patient_phone)
-        print("caregiver_carrier: ", caregiver_carrier)
-        print("patient_carrier: ", patient_carrier)
+        '''
+        print(f"Caregiver phone: {caregiver_phone}")
+        print(f"Patient phone: {patient_phone}")
+        print(f"Caregiver carrier: {caregiver_carrier}")
+        print(f"Patient carrier: {patient_carrier}")
+        '''
+    
+        # Validate input
+        if not base64_image or not user_id:
+            return jsonify({"success": False, "message": "Missing image or user ID"}), 400
 
         user_id = int(user_id)
 
-        if not base64_image or not user_id:
-            return jsonify({"success": False, "message": "Failed to upload image"}), 400
-
         # Decode the base64 image data
         image_data = base64.b64decode(base64_image)
-
-        # Convert the byte string into a NumPy array
         np_image = np.frombuffer(image_data, dtype=np.uint8)
-
-        # Decode the NumPy array into an image
         image = cv2.imdecode(np_image, cv2.IMREAD_COLOR)
 
-        img_url_list = retrieve_all_user_photos(user_id)
+        # Check if notifications are enabled for the user
+        enable_notifications_val = get_enable_notifications(user_id)
+        if enable_notifications_val in ["User does not exist", "Notification setting not found"]:
+            return jsonify({'status': 'fail', 'message': 'Notifications are not enabled'}), 400
 
-        # Initialize a dictionary to keep count of matches per album
-        match_counts = {}
+        # Load face encodings and names from the pickle file
+        if not check_pickle_exists(user_id):
+            return jsonify({'status': 'fail', 'message': 'No encodings found for the user'}), 400
 
-        # Iterate through the list of image URLs
-        for url in img_url_list:
-            # Extract the album ID from the URL
-            userID, albumID, photoID = extract_ids_from_url(url)  # This function should extract the album ID from the URL structure
+        known_face_encodings, known_face_names = load_face_encodings(user_id)
 
-            base = "images/"
+        # Perform face recognition on the uploaded image
+        face_encodings = face_recognition.face_encodings(image)
+        if not face_encodings:
+            return jsonify({'status': 'fail', 'message': 'No faces detected in the image'}), 400
 
-            base_url = base + userID + "-" + albumID + "-" + photoID + ".png"
-
-            # Download and decode the image
-            photo_data = download_image(base_url)
-
-            if not photo_data:
-                continue
-
-            np_photo_img = np.frombuffer(photo_data, np.uint8)
-            stored_img = cv2.imdecode(np_photo_img, cv2.IMREAD_COLOR)
-
-            # Perform facial recognition
-            if facial_recognition(image, stored_img):
-                if albumID not in match_counts:
-                    match_counts[albumID] = 0
-                match_counts[albumID] += 1
-            
-        # Determine the album with the most matches
-        if match_counts:
-
-            most_recognized_album_id = max(match_counts, key=match_counts.get)
-
-            #Check whether texts are enabled
-
-            enable_notifications_val = get_enable_notifications(user_id)
-
-            if ((enable_notifications_val == "User does not exist") or (enable_notifications_val == "Notification setting not found")):
-                return jsonify({'status': 'fail', 'message': 'Notifications is not enabled'})
-
-            #Retrieve name and bio using userID and albumID
-            album_data = get_album_data(user_id, most_recognized_album_id)
-
-            bio = album_data['bio']
-            name = album_data['name']
-
-            #Test to patient number
-            text_to_user(patient_phone, patient_carrier, name, bio)
-            
-            return jsonify({
-                'status': 'success',
-                'message': 'Face recognized',
-                'album_id': most_recognized_album_id,
-                'matches': match_counts[most_recognized_album_id]
-        })
-        else:
+        # Recognize the faces in the image using known encodings
+        album_id, number_matches = recognize_faces(image, known_face_encodings, known_face_names)
+        
+        if album_id == "Unknown":
             return jsonify({'status': 'fail', 'message': 'No match found'})
+        
+        print('number_of_matches:', number_matches)
+
+        # Retrieve name and bio using the recognized album (most matched album)
+        album_data = get_album_data(user_id, album_id)
+        bio = album_data['bio']
+        name = album_data['name']
+
+        # Send a text to the patient's phone number
+        text_to_user(patient_phone, patient_carrier, name, bio)
+
+        # Return a success response
+        return jsonify({
+            'status': 'success',
+            'message': 'Face recognized',
+            'name': name,
+            'bio': bio
+        })
 
     except Exception as e:
         print(f"Error in recognize_face: {e}")
-        return jsonify({'status': 'error', 'message': str(e)})
-    
+        return jsonify({'status': 'error', 'message': str(e)}), 500    
 
 
 if __name__ == "__main__":
     #in ECE building 192.168.1.131
     #regurlar can leave blank or 172.25.0.121
-    app.run(host = '192.168.1.167', port=3000, debug=True)
+    #regular: host = '192.168.1.167'
+    app.run(port=3000, debug=True)
