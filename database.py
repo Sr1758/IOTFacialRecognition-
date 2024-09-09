@@ -524,6 +524,15 @@ def check_pickle_exists(userID):
         print(f"Error checking file existence: {str(e)}")
         return False
 
+def get_last_success(user_id):
+    # Function to get the last_success timestamp from the user record
+    ref = db.reference(f'users/{user_id}/last_success')
+    return ref.get()
+
+def update_last_success(user_id, timestamp):
+    # Function to update the last_success timestamp in the user record
+    ref = db.reference(f'users/{user_id}/last_success')
+    ref.set(timestamp)
 
 
     

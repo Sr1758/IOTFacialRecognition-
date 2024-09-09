@@ -3,17 +3,16 @@ import os
 import base64
 import cv2 
 import numpy as np 
-import dlib
 import face_recognition
 import requests
-import pickle
+from datetime import datetime, timezone, timedelta
+
 #Database functions imported from database.py
 from database import *
 from pickeProgram import *
 
 #function imported from texting.py. Used to text a caregiver.
-from texting import phone_check, text_to_user
-from faceRecognition import facial_recognition, extract_ids_from_url
+from texting import text_to_user
 
 app = Flask(__name__)
 
@@ -166,8 +165,6 @@ def clearAlbum():
         
         res = clean_album(user_id,album_id)
 
-        #Run remove_user_encodings
-        #Run remove_user_encodings
         remove_user_encodings(album_id, user_id)
 
         if res!=1:
@@ -370,13 +367,6 @@ def recognize_face():
         caregiver_carrier = data.get('caregiver_carrier')
         patient_carrier = data.get('patient_carrier')
 
-        '''
-        print(f"Caregiver phone: {caregiver_phone}")
-        print(f"Patient phone: {patient_phone}")
-        print(f"Caregiver carrier: {caregiver_carrier}")
-        print(f"Patient carrier: {patient_carrier}")
-        '''
-    
         # Validate input
         if not base64_image or not user_id:
             return jsonify({"success": False, "message": "Missing image or user ID"}), 400
@@ -392,6 +382,26 @@ def recognize_face():
         enable_notifications_val = get_enable_notifications(user_id)
         if enable_notifications_val in ["User does not exist", "Notification setting not found"]:
             return jsonify({'status': 'fail', 'message': 'Notifications are not enabled'}), 400
+        
+        '''
+        Retrieve current datetime and compare to last_sucess field from the user directory in the firebase
+        realtime database. If the time between the last_sucess and the current datetime is less than 
+        5 minutes, then return a 400 json response with the message 'cannot text within 5 minute 
+        interval of sucessfull face identification. The last_sucess field is updated with the current
+        datetime whenever a face is sucessfully identified. 
+        '''
+
+        # Retrieve current datetime in UTC
+        now = datetime.now(timezone.utc)
+
+        # Retrieve last_success from the user directory in Firebase Realtime Database
+        last_success = get_last_success(user_id)  # Assume this function retrieves the timestamp as an ISO string
+        if last_success:
+            last_success_time = datetime.fromisoformat(last_success.replace("Z", "+00:00"))
+            time_diff = now - last_success_time
+
+            if time_diff < timedelta(minutes=5):
+                return jsonify({'status': 'fail', 'message': 'Cannot text within 5 minutes of successful face identification'}), 400
 
         # Load face encodings and names from the pickle file
         if not check_pickle_exists(user_id):
@@ -419,6 +429,9 @@ def recognize_face():
 
         # Send a text to the patient's phone number
         text_to_user(patient_phone, patient_carrier, name, bio)
+
+        # Update last_success field
+        update_last_success(user_id, now.isoformat())
 
         # Return a success response
         return jsonify({
